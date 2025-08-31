@@ -59,6 +59,11 @@ def load_scaled_axolotl(size):
 
 # Initial axolotl sprites
 ax_img_idle, ax_img_down, ax_img_left, ax_img_up, ax_img_right = load_scaled_axolotl(AXOLOTL_SIZE)
+ax_mask_idle  = pygame.mask.from_surface(ax_img_idle)
+ax_mask_down  = pygame.mask.from_surface(ax_img_down)
+ax_mask_left  = pygame.mask.from_surface(ax_img_left)
+ax_mask_up    = pygame.mask.from_surface(ax_img_up)
+ax_mask_right = pygame.mask.from_surface(ax_img_right)
 
 # Background
 background_img = pygame.transform.scale(
@@ -68,6 +73,8 @@ background_img = pygame.transform.scale(
 # Pickups
 starfruit_img = pygame.transform.scale(pygame.image.load("starfruit.png").convert_alpha(),     STARFRUIT_SIZE)
 turtle_img    = pygame.transform.scale(pygame.image.load("turtle_shield.png").convert_alpha(), TURTLE_SIZE)
+starfruit_mask = pygame.mask.from_surface(starfruit_img)
+turtle_mask    = pygame.mask.from_surface(turtle_img)
 
 # Jellyfish: static images, choose one per spawn
 jelly_images = [
@@ -76,6 +83,7 @@ jelly_images = [
     pygame.transform.scale(pygame.image.load("Jelly3.png").convert_alpha(), JELLYFISH_SIZE),
     pygame.transform.scale(pygame.image.load("Jelly4.png").convert_alpha(), JELLYFISH_SIZE),
 ]
+jelly_masks = [pygame.mask.from_surface(img) for img in jelly_images]
 
 # -------------------------
 # Helpers
@@ -105,12 +113,14 @@ def spawn_turtle(now_ms):
 
 def spawn_jelly():
     # Spawn from top at random x, drifting down with slight sideways drift
-    img = random.choice(jelly_images)  # pick one and keep it static
+    idx = random.randrange(len(jelly_images))
+    img = jelly_images[idx]  # pick one and keep it static
+    mask = jelly_masks[idx]
     x = random.randint(20, SCREEN_WIDTH - 20)
     rect = img.get_rect(midtop=(x, -img.get_height()))
     speed_y = random.uniform(JELLYFISH_SPEED_MIN, JELLYFISH_SPEED_MAX)
     drift = random.uniform(-0.8, 0.8)  # gentle sideways drift
-    return {"rect": rect, "vy": speed_y, "vx": drift, "image": img}
+    return {"rect": rect, "vy": speed_y, "vx": drift, "image": img, "mask": mask}
 
 def draw_wobbling(image, item, now_ms):
     wobble = WOBBLE_AMPLITUDE * math.sin(WOBBLE_SPEED * now_ms + item["phase"])
@@ -127,11 +137,18 @@ def grow_axolotl():
         return  # already at max size
 
     global ax_img_idle, ax_img_down, ax_img_left, ax_img_up, ax_img_right
+    global ax_mask_idle, ax_mask_down, ax_mask_left, ax_mask_up, ax_mask_right
     ax_img_idle, ax_img_down, ax_img_left, ax_img_up, ax_img_right = load_scaled_axolotl((new_w, new_h))
+    ax_mask_idle  = pygame.mask.from_surface(ax_img_idle)
+    ax_mask_down  = pygame.mask.from_surface(ax_img_down)
+    ax_mask_left  = pygame.mask.from_surface(ax_img_left)
+    ax_mask_up    = pygame.mask.from_surface(ax_img_up)
+    ax_mask_right = pygame.mask.from_surface(ax_img_right)
 
     center = state["ax_rect"].center
     state["ax_sprite"] = ax_img_idle
     state["ax_rect"] = ax_img_idle.get_rect(center=center)
+    state["ax_mask"] = ax_mask_idle
 
 # -------------------------
 # High score helpers
@@ -166,6 +183,7 @@ def reset_game_state():
     s = {
         "ax_rect": new_axolotl_rect(),
         "ax_sprite": ax_img_idle,
+        "ax_mask": ax_mask_idle,
         "lives": 3,
         "has_shield": False,
         "starfruits": [],
@@ -235,14 +253,19 @@ while running:
         # Choose sprite by direction
         if move_x > 0:
             state["ax_sprite"] = ax_img_right
+            state["ax_mask"] = ax_mask_right
         elif move_x < 0:
             state["ax_sprite"] = ax_img_left
+            state["ax_mask"] = ax_mask_left
         elif move_y > 0:
             state["ax_sprite"] = ax_img_down
+            state["ax_mask"] = ax_mask_down
         elif move_y < 0:
             state["ax_sprite"] = ax_img_up
+            state["ax_mask"] = ax_mask_up
         else:
             state["ax_sprite"] = ax_img_idle
+            state["ax_mask"] = ax_mask_idle
 
         # Spawning: Starfruit (random positions, stationary with wobble)
         if now - state["last_starfruit_spawn"] >= STARFRUIT_SPAWN_INTERVAL:
@@ -270,35 +293,41 @@ while running:
         # Collisions: Jellyfish with axolotl
         for j in state["jellies"][:]:
             if state["ax_rect"].colliderect(j["rect"]):
-                if state["has_shield"]:
-                    state["has_shield"] = False
-                    state["jellies"].remove(j)
-                else:
-                    state["lives"] -= 1
-                    state["jellies"].remove(j)
-                    if state["lives"] <= 0:
-                        state["game_over"] = True
-                        if not state["score_submitted"]:
-                            updated, qualifies, rank = submit_high_score(high_scores, state["score"])
-                            high_scores[:] = updated
-                            save_high_scores(high_scores)
-                            state["score_submitted"] = True
-                            state["new_high"] = qualifies
-                            state["rank"] = rank
-                        break
+                offset = (j["rect"].x - state["ax_rect"].x, j["rect"].y - state["ax_rect"].y)
+                if state["ax_mask"].overlap(j["mask"], offset):
+                    if state["has_shield"]:
+                        state["has_shield"] = False
+                        state["jellies"].remove(j)
+                    else:
+                        state["lives"] -= 1
+                        state["jellies"].remove(j)
+                        if state["lives"] <= 0:
+                            state["game_over"] = True
+                            if not state["score_submitted"]:
+                                updated, qualifies, rank = submit_high_score(high_scores, state["score"])
+                                high_scores[:] = updated
+                                save_high_scores(high_scores)
+                                state["score_submitted"] = True
+                                state["new_high"] = qualifies
+                                state["rank"] = rank
+                            break
 
         # Collisions: Starfruits with axolotl
         for f in state["starfruits"][:]:
             if state["ax_rect"].colliderect(f["rect"]):
-                state["starfruits"].remove(f)
-                state["score"] += 1  # 1 point per starfruit
-                grow_axolotl()       # grow on pickup
+                offset = (f["rect"].x - state["ax_rect"].x, f["rect"].y - state["ax_rect"].y)
+                if state["ax_mask"].overlap(starfruit_mask, offset):
+                    state["starfruits"].remove(f)
+                    state["score"] += 1  # 1 point per starfruit
+                    grow_axolotl()       # grow on pickup
 
         # Collisions: Turtle shields with axolotl
         for t in state["turtles"][:]:
             if state["ax_rect"].colliderect(t["rect"]):
-                state["turtles"].remove(t)
-                state["has_shield"] = True
+                offset = (t["rect"].x - state["ax_rect"].x, t["rect"].y - state["ax_rect"].y)
+                if state["ax_mask"].overlap(turtle_mask, offset):
+                    state["turtles"].remove(t)
+                    state["has_shield"] = True
 
     else:
         # Game Over: allow restart
@@ -374,4 +403,5 @@ while running:
     pygame.display.flip()
 
 pygame.quit()
+
 sys.exit()

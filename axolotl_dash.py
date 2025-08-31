@@ -1,8 +1,60 @@
-import sys
-import math
-import random
+import ast
+import types
 import json
-import pygame
+from pathlib import Path
+import pytest
+
+
+@pytest.fixture()
+def hs_module():
+    """Load high score helpers from axolotl_dash without importing pygame."""
+    path = Path(__file__).resolve().parent.parent / "axolotl_dash.py"
+    source = path.read_text()
+    tree = ast.parse(source)
+    nodes = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            if any(isinstance(t, ast.Name) and t.id in {"HIGH_SCORES_FILE", "MAX_HIGH_SCORES"} for t in node.targets):
+                nodes.append(node)
+        elif isinstance(node, ast.FunctionDef) and node.name in {"load_high_scores", "save_high_scores", "submit_high_score"}:
+            nodes.append(node)
+    module = types.ModuleType("hs_module")
+    module.__dict__["json"] = json
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), "hs_module", "exec"), module.__dict__)
+    return module
+
+
+def test_submit_high_score_sorted_and_rank(hs_module):
+    scores = [50, 200, 100]
+    updated, qualifies, rank = hs_module.submit_high_score(scores, 150)
+    assert updated == [200, 150, 100, 50]
+    assert rank == 2
+    assert qualifies
+
+
+def test_submit_high_score_limits_top_10(hs_module):
+    scores = [1000, 900, 800, 700, 600, 500, 400, 300, 200, 100]
+    updated, qualifies, rank = hs_module.submit_high_score(scores, 650)
+    assert updated == [1000, 900, 800, 700, 650, 600, 500, 400, 300, 200]
+    assert len(updated) == 10
+    assert rank == 5
+    assert qualifies
+
+
+def test_submit_high_score_persistence(tmp_path, hs_module, monkeypatch):
+    temp_file = tmp_path / "scores.json"
+    monkeypatch.setattr(hs_module, "HIGH_SCORES_FILE", temp_file)
+    initial = [1000, 900, 800, 700, 600, 500, 400, 300, 200, 100]
+    hs_module.save_high_scores(initial)
+    loaded = hs_module.load_high_scores()
+    assert loaded == initial
+    updated, qualifies, rank = hs_module.submit_high_score(loaded, 750)
+    hs_module.save_high_scores(updated)
+    reloaded = hs_module.load_high_scores()
+    assert reloaded == [1000, 900, 800, 750, 700, 600, 500, 400, 300, 200]
+    assert len(reloaded) == 10
+    assert rank == 4
+    assert qualifies
 
 # -------------------------
 # Config
@@ -49,13 +101,13 @@ small_font = pygame.font.SysFont("arial", 20)
 # -------------------------
 # Load and scale assets
 # -------------------------
-def load_scaled_axolotl(size):
-    idle  = pygame.transform.scale(pygame.image.load("Axel.png").convert_alpha(),       size)
-    down  = pygame.transform.scale(pygame.image.load("diver.png").convert_alpha(),      size)
-    left  = pygame.transform.scale(pygame.image.load("diverleft.png").convert_alpha(),  size)
-    up    = pygame.transform.scale(pygame.image.load("diverup.png").convert_alpha(),    size)
-    right = pygame.transform.scale(pygame.image.load("diverRight.png").convert_alpha(), size)
-    return idle, down, left, up, right
+def load_scaled_axolotl(size):␊
+    idle  = pygame.transform.scale(pygame.image.load("axel.png").convert_alpha(),       size)
+    down  = pygame.transform.scale(pygame.image.load("diver.png").convert_alpha(),      size)␊
+    left  = pygame.transform.scale(pygame.image.load("diverLeft.png").convert_alpha(),  size)
+    up    = pygame.transform.scale(pygame.image.load("diverUp.png").convert_alpha(),    size)
+    right = pygame.transform.scale(pygame.image.load("diverRight.png").convert_alpha(), size)␊
+    return idle, down, left, up, right␊
 
 # Initial axolotl sprites
 ax_img_idle, ax_img_down, ax_img_left, ax_img_up, ax_img_right = load_scaled_axolotl(AXOLOTL_SIZE)
@@ -65,16 +117,16 @@ ax_mask_left  = pygame.mask.from_surface(ax_img_left)
 ax_mask_up    = pygame.mask.from_surface(ax_img_up)
 ax_mask_right = pygame.mask.from_surface(ax_img_right)
 
-# Background
-background_img = pygame.transform.scale(
-    pygame.image.load("background.png").convert(), (SCREEN_WIDTH, SCREEN_HEIGHT)
-)
+# Background␊
+background_img = pygame.transform.scale(␊
+    pygame.image.load("Background.png").convert(), (SCREEN_WIDTH, SCREEN_HEIGHT)
+)␊
 
-# Pickups
-starfruit_img = pygame.transform.scale(pygame.image.load("starfruit.png").convert_alpha(),     STARFRUIT_SIZE)
-turtle_img    = pygame.transform.scale(pygame.image.load("turtle_shield.png").convert_alpha(), TURTLE_SIZE)
-starfruit_mask = pygame.mask.from_surface(starfruit_img)
-turtle_mask    = pygame.mask.from_surface(turtle_img)
+# Pickups␊
+starfruit_img = pygame.transform.scale(pygame.image.load("Starfruit.png").convert_alpha(),     STARFRUIT_SIZE)
+turtle_img    = pygame.transform.scale(pygame.image.load("turtle_shield.png").convert_alpha(), TURTLE_SIZE)␊
+starfruit_mask = pygame.mask.from_surface(starfruit_img)␊
+turtle_mask    = pygame.mask.from_surface(turtle_img)␊
 
 # Jellyfish: static images, choose one per spawn
 jelly_images = [
@@ -190,20 +242,20 @@ def reset_game_state():
         "turtles": [],
         "jellies": [],
         "starfruit_spawns": 0,
-        "last_starfruit_spawn": 0,
-        "last_jelly_spawn": 0,
+        # Reset spawn timers to current time so power-ups respect their
+        # configured intervals immediately after a restart.
+        "last_starfruit_spawn": now,
+        "last_jelly_spawn": now,
         "game_over": False,
         "score": 0,                # score counter
         "score_submitted": False,  # high score submitted flag
         "new_high": False,         # whether this run hit the board
         "rank": None,              # rank on the board
     }
-    # Spawn a turtle power-up at the start of the game (ensure not overlapping axolotl)
+    # Spawn a turtle power-up at the start of the game (retry until not overlapping axolotl)
     t = spawn_turtle(now)
-    attempts = 0
-    while t["rect"].colliderect(s["ax_rect"]) and attempts < 20:
+    while t["rect"].colliderect(s["ax_rect"]):
         t = spawn_turtle(now)
-        attempts += 1
     s["turtles"].append(t)
     return s
 
@@ -405,3 +457,4 @@ while running:
 pygame.quit()
 
 sys.exit()
+

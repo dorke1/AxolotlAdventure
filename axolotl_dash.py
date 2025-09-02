@@ -40,6 +40,11 @@ MAX_HIGH_SCORES  = 10
 AXOLOTL_GROWTH   = 2              # pixels per fruit (width & height)
 AXOLOTL_MAX_SIZE = (200, 200)     # max axolotl size clamp
 
+# Font & color settings
+FONT_PATH = "assets/DejaVuSans.ttf"
+HUD_TEXT_COLOR = (255, 240, 200)  # warm sand tone to match palette
+SHADOW_OFFSET  = (2, 2)
+
 # -------------------------
 # Init pygame
 # -------------------------
@@ -47,8 +52,28 @@ pygame.init()
 pygame.display.set_caption("Axolotl")
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
-font = pygame.font.SysFont("arial", 24)
-small_font = pygame.font.SysFont("arial", 20)
+font = pygame.font.Font(FONT_PATH, 24)
+small_font = pygame.font.Font(FONT_PATH, 20)
+
+
+def blit_text_with_shadow(text, font, color, pos, center=False):
+    """Render text with a shadow for improved readability."""
+    shadow_color = tuple(max(0, c - 80) for c in color)
+    text_surf = font.render(text, True, color)
+    shadow_surf = font.render(text, True, shadow_color)
+    if center:
+        text_rect = text_surf.get_rect(center=pos)
+        shadow_rect = shadow_surf.get_rect(
+            center=(pos[0] + SHADOW_OFFSET[0], pos[1] + SHADOW_OFFSET[1])
+        )
+    else:
+        text_rect = text_surf.get_rect(topleft=pos)
+        shadow_rect = shadow_surf.get_rect(
+            topleft=(pos[0] + SHADOW_OFFSET[0], pos[1] + SHADOW_OFFSET[1])
+        )
+    screen.blit(shadow_surf, shadow_rect)
+    screen.blit(text_surf, text_rect)
+    return text_rect
 
 def create_pickup_sound():
     sample_rate = 44100
@@ -399,16 +424,12 @@ while running:
         rect = surf.get_rect(center=(int(p["x"]), int(p["y"])))
         screen.blit(surf, rect)
 
-    # UI: Lives, score, and shield indicator
-    lives_text = font.render(f"Lives: {state['lives']}", True, (120, 60, 160))
-    screen.blit(lives_text, (10, 10))
-
-    score_text = font.render(f"Score: {state['score']}", True, (120, 60, 160))
-    screen.blit(score_text, (10, 46))
+       # UI: Lives, score, and shield indicator
+    blit_text_with_shadow(f"Lives: {state['lives']}", font, HUD_TEXT_COLOR, (10, 10))
+    blit_text_with_shadow(f"Score: {state['score']}", font, HUD_TEXT_COLOR, (10, 46))
 
     if state["has_shield"]:
-        shield_text = font.render("Shield Active", True, (120, 60, 160))
-        screen.blit(shield_text, (10, 82))
+        blit_text_with_shadow("Shield Active", font, HUD_TEXT_COLOR, (10, 82))
 
     # Game over overlay with Top 10
     if state["game_over"]:
@@ -419,38 +440,45 @@ while running:
         cx = SCREEN_WIDTH // 2
         y = SCREEN_HEIGHT // 2 - 120
 
-        go_text = font.render("Game Over", True, (255, 255, 255))
-        screen.blit(go_text, go_text.get_rect(center=(cx, y)))
+        blit_text_with_shadow("Game Over", font, HUD_TEXT_COLOR, (cx, y), center=True)
         y += 40
 
-        score_line = font.render(f"Score: {state['score']}", True, (255, 240, 200))
-        screen.blit(score_line, score_line.get_rect(center=(cx, y)))
+        blit_text_with_shadow(f"Score: {state['score']}", font, HUD_TEXT_COLOR, (cx, y), center=True)
         y += 36
 
         if state.get("new_high"):
-            nh_text = font.render(f"New High Score! Rank #{state.get('rank', '?')}", True, (255, 215, 0))
-            screen.blit(nh_text, nh_text.get_rect(center=(cx, y)))
+            blit_text_with_shadow(
+                f"New High Score! Rank #{state.get('rank', '?')}",
+                font,
+                (255, 215, 0),
+                (cx, y),
+                center=True,
+            )
             y += 36
 
-        hs_title = font.render("Top 10 High Scores", True, (220, 230, 255))
-        screen.blit(hs_title, hs_title.get_rect(center=(cx, y)))
+        blit_text_with_shadow("Top 10 High Scores", font, HUD_TEXT_COLOR, (cx, y), center=True)
         y += 32
 
         for idx, sc in enumerate(high_scores[:MAX_HIGH_SCORES], start=1):
             is_this_run = (state["score_submitted"] and sc == state["score"] and idx == state.get("rank"))
             color = (255, 215, 0) if is_this_run else (230, 230, 230)
-            line = small_font.render(f"{idx:2d}. {sc}", True, color)
-            screen.blit(line, line.get_rect(center=(cx, y)))
+            blit_text_with_shadow(f"{idx:2d}. {sc}", small_font, color, (cx, y), center=True)
             y += 24
 
-        tip_text = font.render("Press R to Restart or Esc to Quit", True, (220, 220, 220))
-        screen.blit(tip_text, tip_text.get_rect(center=(cx, SCREEN_HEIGHT//2 + 220)))
+        blit_text_with_shadow(
+            "Press R to Restart or Esc to Quit",
+            font,
+            HUD_TEXT_COLOR,
+            (cx, SCREEN_HEIGHT // 2 + 220),
+            center=True,
+        )
 
     pygame.display.flip()
 
 pygame.quit()
 
 sys.exit()
+
 
 
 

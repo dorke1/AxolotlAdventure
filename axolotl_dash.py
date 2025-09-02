@@ -3,6 +3,7 @@ import math
 import random
 import json
 import pygame
+import array
 
 # -------------------------
 # Config
@@ -29,6 +30,9 @@ WOBBLE_SPEED     = 0.006         # radians per ms
 
 TURTLE_SPAWN_EVERY = 4
 
+SCORE_POPUP_DURATION = 700       # ms
+SCORE_POPUP_RISE_SPEED = 0.05    # px per ms
+
 HIGH_SCORES_FILE = "high_scores.json"
 MAX_HIGH_SCORES  = 10
 
@@ -46,6 +50,25 @@ clock = pygame.time.Clock()
 font = pygame.font.SysFont("arial", 24)
 small_font = pygame.font.SysFont("arial", 20)
 
+def create_pickup_sound():
+    sample_rate = 44100
+    duration_ms = 120
+    frequency = 880
+    n_samples = int(sample_rate * duration_ms / 1000)
+    amplitude = 12000
+    buf = array.array(
+        "h",
+        [
+            int(amplitude * math.sin(2 * math.pi * frequency * i / sample_rate))
+            for i in range(n_samples)
+        ],
+    )
+    return pygame.mixer.Sound(buffer=buf)
+
+try:
+    pickup_sound = create_pickup_sound()
+except pygame.error:
+    pickup_sound = None
 # -------------------------
 # Load and scale assets
 # -------------------------
@@ -122,6 +145,11 @@ def spawn_jelly():
     drift = random.uniform(-0.8, 0.8)  # gentle sideways drift
     return {"rect": rect, "vy": speed_y, "vx": drift, "image": img, "mask": mask}
 
+def spawn_score_popup(position, now_ms):
+    surf = small_font.render("+1", True, (255, 240, 80))
+    x, y = position
+    return {"surf": surf, "x": float(x), "y": float(y), "spawn": now_ms, "alpha": 255}
+
 def draw_wobbling(image, item, now_ms):
     wobble = WOBBLE_AMPLITUDE * math.sin(WOBBLE_SPEED * now_ms + item["phase"])
     r = item["rect"].copy()
@@ -189,6 +217,7 @@ def reset_game_state():
         "starfruits": [],
         "turtles": [],
         "jellies": [],
+        "score_popups": [],
         "starfruit_spawns": 0,
         "last_starfruit_spawn": now,
         "last_jelly_spawn": now,
@@ -315,9 +344,13 @@ while running:
             if state["ax_rect"].colliderect(f["rect"]):
                 offset = (f["rect"].x - state["ax_rect"].x, f["rect"].y - state["ax_rect"].y)
                 if state["ax_mask"].overlap(starfruit_mask, offset):
+                    pos = f["rect"].center
                     state["starfruits"].remove(f)
                     state["score"] += 1  # 1 point per starfruit
                     grow_axolotl()       # grow on pickup
+                    state["score_popups"].append(spawn_score_popup(pos, now))
+                    if pickup_sound:
+                        pickup_sound.play()
 
         # Collisions: Turtle shields with axolotl
         for t in state["turtles"][:]:
@@ -329,8 +362,16 @@ while running:
 
     else:
         # Game Over: allow restart
-        if keys[pygame.K_r]:
+           if keys[pygame.K_r]:
             state = reset_game_state()
+
+    # Update score popups
+    for p in state["score_popups"][:]:
+        elapsed = now - p["spawn"]
+        p["y"] -= SCORE_POPUP_RISE_SPEED * dt
+        p["alpha"] = 255 - (elapsed / SCORE_POPUP_DURATION) * 255
+        if elapsed >= SCORE_POPUP_DURATION:
+            state["score_popups"].remove(p)
 
     # -------------------------
     # Drawing
@@ -350,6 +391,13 @@ while running:
 
     # Draw axolotl
     screen.blit(state["ax_sprite"], state["ax_rect"])
+
+    # Draw score popups
+    for p in state["score_popups"]:
+        surf = p["surf"].copy()
+        surf.set_alpha(max(0, int(p["alpha"])))
+        rect = surf.get_rect(center=(int(p["x"]), int(p["y"])))
+        screen.blit(surf, rect)
 
     # UI: Lives, score, and shield indicator
     lives_text = font.render(f"Lives: {state['lives']}", True, (120, 60, 160))
@@ -403,6 +451,7 @@ while running:
 pygame.quit()
 
 sys.exit()
+
 
 
 

@@ -198,12 +198,10 @@ def reset_game_state():
         "new_high": False,         # whether this run hit the board
         "rank": None,              # rank on the board
     }
-    # Spawn a turtle power-up at the start of the game (ensure not overlapping axolotl)
+    # Spawn a turtle power-up at the start of the game (retry until not overlapping axolotl)
     t = spawn_turtle(now)
-    attempts = 0
-    while t["rect"].colliderect(s["ax_rect"]) and attempts < 20:
+    while t["rect"].colliderect(s["ax_rect"]):
         t = spawn_turtle(now)
-        attempts += 1
     s["turtles"].append(t)
     return s
 
@@ -405,5 +403,6 @@ while running:
 pygame.quit()
 
 sys.exit()
+
 
 

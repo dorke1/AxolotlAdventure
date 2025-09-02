@@ -67,11 +67,11 @@ ax_mask_right = pygame.mask.from_surface(ax_img_right)
 
 # Background
 background_img = pygame.transform.scale(
-    pygame.image.load("background.png").convert(), (SCREEN_WIDTH, SCREEN_HEIGHT)
+    pygame.image.load("Background.png").convert(), (SCREEN_WIDTH, SCREEN_HEIGHT)
 )
 
 # Pickups
-starfruit_img = pygame.transform.scale(pygame.image.load("starfruit.png").convert_alpha(),     STARFRUIT_SIZE)
+starfruit_img = pygame.transform.scale(pygame.image.load("Starfruit.png").convert_alpha(),     STARFRUIT_SIZE)
 turtle_img    = pygame.transform.scale(pygame.image.load("turtle_shield.png").convert_alpha(), TURTLE_SIZE)
 starfruit_mask = pygame.mask.from_surface(starfruit_img)
 turtle_mask    = pygame.mask.from_surface(turtle_img)
@@ -405,3 +405,4 @@ while running:
 pygame.quit()
 
 sys.exit()
+

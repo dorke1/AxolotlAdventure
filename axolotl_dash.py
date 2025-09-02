@@ -49,13 +49,13 @@ small_font = pygame.font.SysFont("arial", 20)
 # -------------------------
 # Load and scale assets
 # -------------------------
-def load_scaled_axolotl(size):␊
-    idle  = pygame.transform.scale(pygame.image.load("axel.png").convert_alpha(),       size)
-    down  = pygame.transform.scale(pygame.image.load("diver.png").convert_alpha(),      size)␊
-    left  = pygame.transform.scale(pygame.image.load("diverLeft.png").convert_alpha(),  size)
-    up    = pygame.transform.scale(pygame.image.load("diverUp.png").convert_alpha(),    size)
-    right = pygame.transform.scale(pygame.image.load("diverRight.png").convert_alpha(), size)␊
-    return idle, down, left, up, right␊
+def load_scaled_axolotl(size):
+    idle  = pygame.transform.scale(pygame.image.load("Axel.png").convert_alpha(),       size)
+    down  = pygame.transform.scale(pygame.image.load("diver.png").convert_alpha(),      size)
+    left  = pygame.transform.scale(pygame.image.load("diverleft.png").convert_alpha(),  size)
+    up    = pygame.transform.scale(pygame.image.load("diverup.png").convert_alpha(),    size)
+    right = pygame.transform.scale(pygame.image.load("diverRight.png").convert_alpha(), size)
+    return idle, down, left, up, right
 
 # Initial axolotl sprites
 ax_img_idle, ax_img_down, ax_img_left, ax_img_up, ax_img_right = load_scaled_axolotl(AXOLOTL_SIZE)
@@ -65,16 +65,16 @@ ax_mask_left  = pygame.mask.from_surface(ax_img_left)
 ax_mask_up    = pygame.mask.from_surface(ax_img_up)
 ax_mask_right = pygame.mask.from_surface(ax_img_right)
 
-# Background␊
-background_img = pygame.transform.scale(␊
-    pygame.image.load("Background.png").convert(), (SCREEN_WIDTH, SCREEN_HEIGHT)
-)␊
+# Background
+background_img = pygame.transform.scale(
+    pygame.image.load("background.png").convert(), (SCREEN_WIDTH, SCREEN_HEIGHT)
+)
 
-# Pickups␊
-starfruit_img = pygame.transform.scale(pygame.image.load("Starfruit.png").convert_alpha(),     STARFRUIT_SIZE)
-turtle_img    = pygame.transform.scale(pygame.image.load("turtle_shield.png").convert_alpha(), TURTLE_SIZE)␊
-starfruit_mask = pygame.mask.from_surface(starfruit_img)␊
-turtle_mask    = pygame.mask.from_surface(turtle_img)␊
+# Pickups
+starfruit_img = pygame.transform.scale(pygame.image.load("starfruit.png").convert_alpha(),     STARFRUIT_SIZE)
+turtle_img    = pygame.transform.scale(pygame.image.load("turtle_shield.png").convert_alpha(), TURTLE_SIZE)
+starfruit_mask = pygame.mask.from_surface(starfruit_img)
+turtle_mask    = pygame.mask.from_surface(turtle_img)
 
 # Jellyfish: static images, choose one per spawn
 jelly_images = [
@@ -190,20 +190,20 @@ def reset_game_state():
         "turtles": [],
         "jellies": [],
         "starfruit_spawns": 0,
-        # Reset spawn timers to current time so power-ups respect their
-        # configured intervals immediately after a restart.
-        "last_starfruit_spawn": now,
-        "last_jelly_spawn": now,
+        "last_starfruit_spawn": 0,
+        "last_jelly_spawn": 0,
         "game_over": False,
         "score": 0,                # score counter
         "score_submitted": False,  # high score submitted flag
         "new_high": False,         # whether this run hit the board
         "rank": None,              # rank on the board
     }
-    # Spawn a turtle power-up at the start of the game (retry until not overlapping axolotl)
+    # Spawn a turtle power-up at the start of the game (ensure not overlapping axolotl)
     t = spawn_turtle(now)
-    while t["rect"].colliderect(s["ax_rect"]):
+    attempts = 0
+    while t["rect"].colliderect(s["ax_rect"]) and attempts < 20:
         t = spawn_turtle(now)
+        attempts += 1
     s["turtles"].append(t)
     return s
 
@@ -405,5 +405,3 @@ while running:
 pygame.quit()
 
 sys.exit()
-
-

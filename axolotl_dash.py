@@ -190,8 +190,8 @@ def reset_game_state():
         "turtles": [],
         "jellies": [],
         "starfruit_spawns": 0,
-        "last_starfruit_spawn": 0,
-        "last_jelly_spawn": 0,
+        "last_starfruit_spawn": now,
+        "last_jelly_spawn": now,
         "game_over": False,
         "score": 0,                # score counter
         "score_submitted": False,  # high score submitted flag
@@ -405,4 +405,5 @@ while running:
 pygame.quit()
 
 sys.exit()
+
 

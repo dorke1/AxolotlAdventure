@@ -1,4 +1,4 @@
-# 🐡 Axel's Aquarium Adventure
+# 🐡 Axolotl Adventure
 
 Welcome to **Axel's Aquarium Adventure** – a fun platformer starring Axel the axolotl!  
 Dodge obstacles, collect goodies, and explore the underwater world.  

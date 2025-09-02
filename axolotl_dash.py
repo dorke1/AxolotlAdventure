@@ -32,6 +32,7 @@ TURTLE_SPAWN_EVERY = 4
 
 SCORE_POPUP_DURATION = 700       # ms
 SCORE_POPUP_RISE_SPEED = 0.05    # px per ms
+SCORE_POPUP_COLOR   = (200, 80, 255)  # bright purple for score popups
 
 HIGH_SCORES_FILE = "high_scores.json"
 MAX_HIGH_SCORES  = 10
@@ -43,6 +44,7 @@ AXOLOTL_MAX_SIZE = (200, 200)     # max axolotl size clamp
 # Font & color settings
 FONT_PATH = "assets/DejaVuSans.ttf"
 HUD_TEXT_COLOR = (255, 240, 200)  # warm sand tone to match palette
+HUD_STATS_COLOR = (30, 130, 110)  # dark seafoam green for lives/score
 SHADOW_OFFSET  = (2, 2)
 
 # -------------------------
@@ -77,19 +79,16 @@ def blit_text_with_shadow(text, font, color, pos, center=False):
 
 def create_pickup_sound():
     sample_rate = 44100
-    duration_ms = 120
-    frequency = 880
+    duration_ms = 180
+    frequencies = [660, 880]
     n_samples = int(sample_rate * duration_ms / 1000)
-    amplitude = 12000
-    buf = array.array(
-        "h",
-        [
-            int(amplitude * math.sin(2 * math.pi * frequency * i / sample_rate))
-            for i in range(n_samples)
-        ],
-    )
+    buf = array.array("h")
+    for i in range(n_samples):
+        t = i / sample_rate
+        amplitude = 8000 * (1 - i / n_samples)  # fade out for softer sound
+        sample = sum(math.sin(2 * math.pi * f * t) for f in frequencies) / len(frequencies)
+        buf.append(int(amplitude * sample))
     return pygame.mixer.Sound(buffer=buf)
-
 try:
     pickup_sound = create_pickup_sound()
 except pygame.error:
@@ -171,7 +170,7 @@ def spawn_jelly():
     return {"rect": rect, "vy": speed_y, "vx": drift, "image": img, "mask": mask}
 
 def spawn_score_popup(position, now_ms):
-    surf = small_font.render("+1", True, (255, 240, 80))
+    surf = small_font.render("+1", True, SCORE_POPUP_COLOR)
     x, y = position
     return {"surf": surf, "x": float(x), "y": float(y), "spawn": now_ms, "alpha": 255}
 
@@ -424,9 +423,9 @@ while running:
         rect = surf.get_rect(center=(int(p["x"]), int(p["y"])))
         screen.blit(surf, rect)
 
-       # UI: Lives, score, and shield indicator
-    blit_text_with_shadow(f"Lives: {state['lives']}", font, HUD_TEXT_COLOR, (10, 10))
-    blit_text_with_shadow(f"Score: {state['score']}", font, HUD_TEXT_COLOR, (10, 46))
+    # UI: Lives, score, and shield indicator
+    blit_text_with_shadow(f"Lives: {state['lives']}", font, HUD_STATS_COLOR, (10, 10))
+    blit_text_with_shadow(f"Score: {state['score']}", font, HUD_STATS_COLOR, (10, 46))
 
     if state["has_shield"]:
         blit_text_with_shadow("Shield Active", font, HUD_TEXT_COLOR, (10, 82))
@@ -478,6 +477,7 @@ while running:
 pygame.quit()
 
 sys.exit()
+
 
 
 
